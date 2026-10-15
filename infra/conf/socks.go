@@ -2,10 +2,12 @@ package conf
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/serial"
+	"github.com/xtls/xray-core/infra/conf/cfgcommon/duration"
 	"github.com/xtls/xray-core/proxy/socks"
 	"google.golang.org/protobuf/proto"
 )
@@ -28,12 +30,16 @@ const (
 )
 
 type SocksServerConfig struct {
-	AuthMethod string          `json:"auth"`
-	Users      []*SocksAccount `json:"users"`
-	Accounts   []*SocksAccount `json:"accounts"`
-	UDP        bool            `json:"udp"`
-	Host       *Address        `json:"ip"`
-	UserLevel  uint32          `json:"userLevel"`
+	AuthMethod  string             `json:"auth"`
+	Users       []*SocksAccount    `json:"users"`
+	Accounts    []*SocksAccount    `json:"accounts"`
+	UDP         bool               `json:"udp"`
+	Host        *Address           `json:"ip"`
+	UserLevel   uint32             `json:"userLevel"`
+	Bind        bool               `json:"bind"`
+	BindHost    *Address           `json:"bindAddress"`
+	BindPort    *PortRange         `json:"bindPort"`
+	BindTimeout *duration.Duration `json:"bindTimeout"`
 }
 
 func (v *SocksServerConfig) Build() (proto.Message, error) {
@@ -65,6 +71,25 @@ func (v *SocksServerConfig) Build() (proto.Message, error) {
 	}
 
 	config.UserLevel = v.UserLevel
+
+	config.BindEnabled = v.Bind
+	if v.BindHost != nil {
+		config.BindAddress = v.BindHost.Build()
+	}
+	if v.BindPort != nil {
+		if v.BindPort.From > v.BindPort.To || v.BindPort.From == 0 {
+			return nil, errors.New(`SOCKS settings: invalid "bindPort" range.`)
+		}
+		config.BindPortRange = v.BindPort.Build()
+	}
+	if v.BindTimeout != nil {
+		d := time.Duration(*v.BindTimeout)
+		if d <= 0 {
+			return nil, errors.New(`SOCKS settings: "bindTimeout" must be positive.`)
+		}
+		config.BindTimeout = uint32((d + time.Second - 1) / time.Second)
+	}
+
 	return config, nil
 }
 

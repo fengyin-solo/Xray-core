@@ -140,6 +140,10 @@ func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatche
 		errors.LogInfoInner(ctx, err, "failed to clear deadline")
 	}
 
+	if request.Command == requestCommandTCPBind {
+		return s.handleTCPBind(ctx, conn, reader, svrSession, request)
+	}
+
 	if request.Command == protocol.RequestCommandTCP {
 		dest := request.Destination()
 		errors.LogInfo(ctx, "TCP Connect request to ", dest)
