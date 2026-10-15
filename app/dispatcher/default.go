@@ -26,6 +26,11 @@ import (
 
 var errSniffingTimeout = errors.New("timeout on sniffing")
 
+const (
+	defaultSniffingTimeout  = 200 * time.Millisecond
+	defaultSniffingAttempts = 2
+)
+
 type cachedReader struct {
 	sync.Mutex
 	reader buf.TimeoutReader // *pipe.Reader or *buf.TimeoutWrapperReader
@@ -292,7 +297,7 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 				reader: outbound.Reader.(*pipe.Reader),
 			}
 			outbound.Reader = cReader
-			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
+			result, err := sniffer(ctx, cReader, sniffingRequest, destination.Network)
 			if err == nil {
 				content.Protocol = result.Protocol()
 			}
@@ -347,7 +352,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			reader: outbound.Reader.(buf.TimeoutReader),
 		}
 		outbound.Reader = cReader
-		result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
+		result, err := sniffer(ctx, cReader, sniffingRequest, destination.Network)
 		if err == nil {
 			content.Protocol = result.Protocol()
 		}
@@ -375,7 +380,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 	return nil
 }
 
-func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, network net.Network) (SniffResult, error) {
+func sniffer(ctx context.Context, cReader *cachedReader, sniffingRequest session.SniffingRequest, network net.Network) (SniffResult, error) {
 	payload := buf.NewWithSize(32767)
 	defer payload.Release()
 
@@ -383,25 +388,37 @@ func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, netw
 
 	metaresult, metadataErr := sniffer.SniffMetadata(ctx)
 
-	if metadataOnly {
+	if sniffingRequest.MetadataOnly {
 		return metaresult, metadataErr
 	}
 
 	contentResult, contentErr := func() (SniffResult, error) {
-		cacheDeadline := 200 * time.Millisecond
+		sniffingTimeout := sniffingRequest.SniffingTimeout
+		if sniffingTimeout <= 0 {
+			sniffingTimeout = defaultSniffingTimeout
+		}
+		maxAttempts := int(sniffingRequest.MaxAttempts)
+		if maxAttempts <= 0 {
+			maxAttempts = defaultSniffingAttempts
+		}
 		totalAttempt := 0
+		// The deadline is calculated once for the whole sniffing session, so
+		// that the per-round remaining time shrinks instead of restarting the
+		// window on every read attempt.
+		sniffingDeadline := time.Now().Add(sniffingTimeout)
 		for {
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			default:
-				cachingStartingTimeStamp := time.Now()
+				cacheDeadline := time.Until(sniffingDeadline)
+				if cacheDeadline <= 0 {
+					return nil, errSniffingTimeout
+				}
 				err := cReader.Cache(payload, cacheDeadline)
 				if err != nil {
 					return nil, err
 				}
-				cachingTimeElapsed := time.Since(cachingStartingTimeStamp)
-				cacheDeadline -= cachingTimeElapsed
 
 				if !payload.IsEmpty() {
 					result, err := sniffer.Sniff(ctx, payload.Bytes(), network)
@@ -416,7 +433,7 @@ func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, netw
 				} else {
 					totalAttempt++
 				}
-				if totalAttempt >= 2 || cacheDeadline <= 0 {
+				if totalAttempt >= maxAttempts || time.Until(sniffingDeadline) <= 0 {
 					return nil, errSniffingTimeout
 				}
 			}

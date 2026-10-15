@@ -356,3 +356,51 @@ func TestConfig_Override(t *testing.T) {
 		})
 	}
 }
+
+func TestSniffingConfig_BuildTiming(t *testing.T) {
+	var config SniffingConfig
+	if err := json.Unmarshal([]byte(`{
+		"enabled": true,
+		"sniffingTimeout": "450ms",
+		"maxAttempts": 5
+	}`), &config); err != nil {
+		t.Fatalf("failed to parse sniffing timing config: %v", err)
+	}
+	built, err := config.Build()
+	if err != nil {
+		t.Fatalf("SniffingConfig.Build() failed: %v", err)
+	}
+	if built.SniffingTimeout != 450 {
+		t.Fatalf("unexpected sniffing timeout: %d", built.SniffingTimeout)
+	}
+	if built.MaxAttempts != 5 {
+		t.Fatalf("unexpected max attempts: %d", built.MaxAttempts)
+	}
+
+	// Omitting the new fields keeps them zero, leaving the dispatcher
+	// defaults untouched.
+	var defaultConfig SniffingConfig
+	if err := json.Unmarshal([]byte(`{"enabled": true}`), &defaultConfig); err != nil {
+		t.Fatalf("failed to parse sniffing config: %v", err)
+	}
+	defaultBuilt, err := defaultConfig.Build()
+	if err != nil {
+		t.Fatalf("SniffingConfig.Build() failed: %v", err)
+	}
+	if defaultBuilt.SniffingTimeout != 0 || defaultBuilt.MaxAttempts != 0 {
+		t.Fatalf("expected zero-valued defaults, got: %+v", defaultBuilt)
+	}
+
+	for _, raw := range []string{
+		`{"enabled": true, "sniffingTimeout": "-1ms"}`,
+		`{"enabled": true, "maxAttempts": -1}`,
+	} {
+		var bad SniffingConfig
+		if err := json.Unmarshal([]byte(raw), &bad); err != nil {
+			t.Fatalf("failed to parse %q: %v", raw, err)
+		}
+		if _, err := bad.Build(); err == nil {
+			t.Fatalf("expected Build() to reject %q", raw)
+		}
+	}
+}

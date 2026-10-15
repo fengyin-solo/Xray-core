@@ -3,9 +3,11 @@ package conf
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/xtls/xray-core/app/dispatcher"
 	"github.com/xtls/xray-core/app/proxyman"
@@ -15,6 +17,7 @@ import (
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/serial"
 	core "github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/infra/conf/cfgcommon/duration"
 	"github.com/xtls/xray-core/proxy/freedom"
 	"github.com/xtls/xray-core/transport/internet"
 )
@@ -60,6 +63,13 @@ type SniffingConfig struct {
 	IPsExcluded     StringList `json:"ipsExcluded"`
 	MetadataOnly    bool       `json:"metadataOnly"`
 	RouteOnly       bool       `json:"routeOnly"`
+	// SniffingTimeout is the total time window to wait for the client first
+	// packet while content sniffing, e.g. "500ms". Zero/empty keeps the
+	// built-in default (200ms).
+	SniffingTimeout duration.Duration `json:"sniffingTimeout"`
+	// MaxAttempts is the maximum number of attempts to read and sniff the
+	// client first packet. Zero keeps the built-in default (2).
+	MaxAttempts int32 `json:"maxAttempts"`
 }
 
 // Build implements Buildable.
@@ -90,6 +100,17 @@ func (c *SniffingConfig) Build() (*proxyman.SniffingConfig, error) {
 		return nil, err
 	}
 
+	if c.SniffingTimeout < 0 {
+		return nil, errors.New("invalid sniffingTimeout: ", c.SniffingTimeout)
+	}
+	if c.MaxAttempts < 0 {
+		return nil, errors.New("invalid maxAttempts: ", c.MaxAttempts)
+	}
+	sniffingTimeoutMs := int64(time.Duration(c.SniffingTimeout) / time.Millisecond)
+	if sniffingTimeoutMs > math.MaxInt32 {
+		return nil, errors.New("sniffingTimeout is too large: ", c.SniffingTimeout)
+	}
+
 	return &proxyman.SniffingConfig{
 		Enabled:             c.Enabled,
 		DestinationOverride: protocols,
@@ -97,6 +118,8 @@ func (c *SniffingConfig) Build() (*proxyman.SniffingConfig, error) {
 		IpsExcluded:         ips,
 		MetadataOnly:        c.MetadataOnly,
 		RouteOnly:           c.RouteOnly,
+		SniffingTimeout:     int32(sniffingTimeoutMs),
+		MaxAttempts:         c.MaxAttempts,
 	}, nil
 }
 

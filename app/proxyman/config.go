@@ -1,6 +1,8 @@
 package proxyman
 
 import (
+	"time"
+
 	"github.com/xtls/xray-core/common/geodata"
 	"github.com/xtls/xray-core/common/session"
 )
@@ -15,6 +17,8 @@ func BuildSniffingRequest(config *SniffingConfig) (session.SniffingRequest, erro
 		OverrideDestinationForProtocol: config.DestinationOverride,
 		MetadataOnly:                   config.MetadataOnly,
 		RouteOnly:                      config.RouteOnly,
+		SniffingTimeout:                time.Duration(config.SniffingTimeout) * time.Millisecond,
+		MaxAttempts:                    config.MaxAttempts,
 	}
 	if len(config.DomainsExcluded) > 0 {
 		excludeForDomain, err := geodata.DomainReg.BuildDomainMatcher(config.DomainsExcluded)

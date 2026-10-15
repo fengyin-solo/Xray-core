@@ -73,8 +73,16 @@ type SniffingConfig struct {
 	// Whether should only try to sniff metadata without waiting for client input.
 	// Can be used to support SMTP like protocol where server send the first
 	// message.
-	MetadataOnly  bool `protobuf:"varint,4,opt,name=metadata_only,json=metadataOnly,proto3" json:"metadata_only,omitempty"`
-	RouteOnly     bool `protobuf:"varint,5,opt,name=route_only,json=routeOnly,proto3" json:"route_only,omitempty"`
+	MetadataOnly bool `protobuf:"varint,4,opt,name=metadata_only,json=metadataOnly,proto3" json:"metadata_only,omitempty"`
+	RouteOnly    bool `protobuf:"varint,5,opt,name=route_only,json=routeOnly,proto3" json:"route_only,omitempty"`
+	// Total time window to wait for the client first packet while content
+	// sniffing, in milliseconds. Effective only when metadata_only is false.
+	// Non-positive value falls back to the built-in default (200ms).
+	SniffingTimeout int32 `protobuf:"varint,7,opt,name=sniffing_timeout,json=sniffingTimeout,proto3" json:"sniffing_timeout,omitempty"`
+	// Maximum number of attempts to read and sniff the client first packet
+	// before declaring a sniffing timeout. Non-positive value falls back to
+	// the built-in default (2).
+	MaxAttempts   int32 `protobuf:"varint,8,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -149,6 +157,20 @@ func (x *SniffingConfig) GetRouteOnly() bool {
 		return x.RouteOnly
 	}
 	return false
+}
+
+func (x *SniffingConfig) GetSniffingTimeout() int32 {
+	if x != nil {
+		return x.SniffingTimeout
+	}
+	return 0
+}
+
+func (x *SniffingConfig) GetMaxAttempts() int32 {
+	if x != nil {
+		return x.MaxAttempts
+	}
+	return 0
 }
 
 type ReceiverConfig struct {
@@ -477,40 +499,51 @@ func (x *MultiplexingConfig) GetXudpProxyUDP443() string {
 var File_app_proxyman_config_proto protoreflect.FileDescriptor
 
 const file_app_proxyman_config_proto_rawDesc = "" +
-	"\n" +
-	"\x19app/proxyman/config.proto\x12\x11xray.app.proxyman\x1a\x18common/net/address.proto\x1a\x15common/net/port.proto\x1a\x1ftransport/internet/config.proto\x1a!common/serial/typed_message.proto\x1a\x1bcommon/geodata/geodat.proto\"\x0f\n" +
-	"\rInboundConfig\"\xad\x02\n" +
+	"\n\x19app/proxyman/config.proto\x12\x11xray.app.proxyman\x1a\x18common/net/addre" +
+	"ss.proto\x1a\x15common/net/port.proto\x1a\x1ftransport/internet/config.proto" +
+	"\x1a!common/serial/typed_message.proto\x1a\x1bcommon/geodata/geodat.proto" +
+	"\"\x0f\n\rInboundConfig\"\xfb\x02\n" +
 	"\x0eSniffingConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x121\n" +
 	"\x14destination_override\x18\x02 \x03(\tR\x13destinationOverride\x12J\n" +
-	"\x10domains_excluded\x18\x03 \x03(\v2\x1f.xray.common.geodata.DomainRuleR\x0fdomainsExcluded\x12>\n" +
+	"\x10domains_excluded\x18\x03 \x03(\v2\x1f.xray.common.geodata.DomainRuleR\x0fdomain" +
+	"sExcluded\x12>\n" +
 	"\fips_excluded\x18\x06 \x03(\v2\x1b.xray.common.geodata.IPRuleR\vipsExcluded\x12#\n" +
 	"\rmetadata_only\x18\x04 \x01(\bR\fmetadataOnly\x12\x1d\n" +
-	"\n" +
-	"route_only\x18\x05 \x01(\bR\trouteOnly\"\xe5\x02\n" +
+	"\nroute_only\x18\x05 \x01(\bR\trouteOnly\x12)\n" +
+	"\x10sniffing_timeout\x18\a \x01(\x05R\x0fsniffingTimeout\x12!\n" +
+	"\fmax_attempts\x18\b \x01(\x05R\vmaxAttempts\"\xe5\x02\n" +
 	"\x0eReceiverConfig\x126\n" +
 	"\tport_list\x18\x01 \x01(\v2\x19.xray.common.net.PortListR\bportList\x123\n" +
 	"\x06listen\x18\x02 \x01(\v2\x1b.xray.common.net.IPOrDomainR\x06listen\x12N\n" +
-	"\x0fstream_settings\x18\x03 \x01(\v2%.xray.transport.internet.StreamConfigR\x0estreamSettings\x12@\n" +
-	"\x1creceive_original_destination\x18\x04 \x01(\bR\x1areceiveOriginalDestination\x12N\n" +
-	"\x11sniffing_settings\x18\x06 \x01(\v2!.xray.app.proxyman.SniffingConfigR\x10sniffingSettingsJ\x04\b\x05\x10\x06\"\xc0\x01\n" +
+	"\x0fstream_settings\x18\x03 \x01(\v2%.xray.transport.internet.StreamConfigR\x0es" +
+	"treamSettings\x12@\n" +
+	"\x1creceive_original_destination\x18\x04 \x01(\bR\x1areceiveOriginalDestination\x12" +
+	"N\n\x11sniffing_settings\x18\x06 \x01(\v2!.xray.app.proxyman.SniffingConfigR\x10s" +
+	"niffingSettingsJ\x04\b\x05\x10\x06\"\xc0\x01\n" +
 	"\x14InboundHandlerConfig\x12\x10\n" +
 	"\x03tag\x18\x01 \x01(\tR\x03tag\x12M\n" +
-	"\x11receiver_settings\x18\x02 \x01(\v2 .xray.common.serial.TypedMessageR\x10receiverSettings\x12G\n" +
-	"\x0eproxy_settings\x18\x03 \x01(\v2 .xray.common.serial.TypedMessageR\rproxySettings\"\x10\n" +
+	"\x11receiver_settings\x18\x02 \x01(\v2 .xray.common.serial.TypedMessageR\x10rece" +
+	"iverSettings\x12G\n" +
+	"\x0eproxy_settings\x18\x03 \x01(\v2 .xray.common.serial.TypedMessageR\rproxySe" +
+	"ttings\"\x10\n" +
 	"\x0eOutboundConfig\"\xd6\x02\n" +
 	"\fSenderConfig\x12-\n" +
 	"\x03via\x18\x01 \x01(\v2\x1b.xray.common.net.IPOrDomainR\x03via\x12N\n" +
-	"\x0fstream_settings\x18\x02 \x01(\v2%.xray.transport.internet.StreamConfigR\x0estreamSettings\x12T\n" +
-	"\x12multiplex_settings\x18\x04 \x01(\v2%.xray.app.proxyman.MultiplexingConfigR\x11multiplexSettings\x12\x19\n" +
+	"\x0fstream_settings\x18\x02 \x01(\v2%.xray.transport.internet.StreamConfigR\x0es" +
+	"treamSettings\x12T\n" +
+	"\x12multiplex_settings\x18\x04 \x01(\v2%.xray.app.proxyman.MultiplexingConfig" +
+	"R\x11multiplexSettings\x12\x19\n" +
 	"\bvia_cidr\x18\x05 \x01(\tR\aviaCidr\x12P\n" +
-	"\x0ftarget_strategy\x18\x06 \x01(\x0e2'.xray.transport.internet.DomainStrategyR\x0etargetStrategyJ\x04\b\x03\x10\x04\"\xa4\x01\n" +
+	"\x0ftarget_strategy\x18\x06 \x01(\x0e2'.xray.transport.internet.DomainStrategyR" +
+	"\x0etargetStrategyJ\x04\b\x03\x10\x04\"\xa4\x01\n" +
 	"\x12MultiplexingConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12 \n" +
 	"\vconcurrency\x18\x02 \x01(\x05R\vconcurrency\x12(\n" +
 	"\x0fxudpConcurrency\x18\x03 \x01(\x05R\x0fxudpConcurrency\x12(\n" +
 	"\x0fxudpProxyUDP443\x18\x04 \x01(\tR\x0fxudpProxyUDP443BU\n" +
-	"\x15com.xray.app.proxymanP\x01Z&github.com/xtls/xray-core/app/proxyman\xaa\x02\x11Xray.App.Proxymanb\x06proto3"
+	"\x15com.xray.app.proxymanP\x01Z&github.com/xtls/xray-core/app/proxyman" +
+	"\xaa\x02\x11Xray.App.Proxymanb\x06proto3"
 
 var (
 	file_app_proxyman_config_proto_rawDescOnce sync.Once
