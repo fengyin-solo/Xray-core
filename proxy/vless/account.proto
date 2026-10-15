@@ -13,6 +13,26 @@ message Reverse {
   xray.app.proxyman.SniffingConfig sniffing = 2;
 }
 
+// PoolConfig configures the VLESS outbound pre-connection pool.
+message PoolConfig {
+  // Minimum number of idle connections the pool keeps warm.
+  uint32 min_idle = 1;
+  // Maximum number of idle connections the pool caches.
+  uint32 max_idle = 2;
+  // Base lifetime of a pooled connection before it is considered expired.
+  int64 lifetime_ms = 3;
+  // Extra lifetime uniformly sampled from [0, lifetime_jitter_ms) per connection.
+  int64 lifetime_jitter_ms = 4;
+  // Timeout of a single pre-connect dial attempt.
+  int64 dial_timeout_ms = 5;
+  // Initial delay before retrying a failed dial.
+  int64 retry_interval_ms = 6;
+  // Maximum delay between dial retries after exponential backoff.
+  int64 retry_max_interval_ms = 7;
+  // Grace period to wait for pool producers to stop on handler close.
+  int64 close_grace_ms = 8;
+}
+
 message Account {
   // ID of the account, in the form of a UUID, e.g., "66ad4540-b58c-4ad2-9926-ea63445a9b57".
   string id = 1;
@@ -28,4 +48,7 @@ message Account {
 
   uint32 testpre = 8;
   repeated uint32 testseed = 9;
+
+  // pool enables and configures pre-connection pooling. Takes precedence over testpre.
+  PoolConfig pool = 10;
 }

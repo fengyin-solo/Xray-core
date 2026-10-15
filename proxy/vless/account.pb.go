@@ -74,26 +74,137 @@ func (x *Reverse) GetSniffing() *proxyman.SniffingConfig {
 	return nil
 }
 
+// PoolConfig configures the VLESS outbound pre-connection pool.
+type PoolConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Minimum number of idle connections the pool keeps warm.
+	MinIdle uint32 `protobuf:"varint,1,opt,name=min_idle,json=minIdle,proto3" json:"min_idle,omitempty"`
+	// Maximum number of idle connections the pool caches.
+	MaxIdle uint32 `protobuf:"varint,2,opt,name=max_idle,json=maxIdle,proto3" json:"max_idle,omitempty"`
+	// Base lifetime of a pooled connection before it is considered expired.
+	LifetimeMs int64 `protobuf:"varint,3,opt,name=lifetime_ms,json=lifetimeMs,proto3" json:"lifetime_ms,omitempty"`
+	// Extra lifetime uniformly sampled from [0, lifetime_jitter_ms) per connection.
+	LifetimeJitterMs int64 `protobuf:"varint,4,opt,name=lifetime_jitter_ms,json=lifetimeJitterMs,proto3" json:"lifetime_jitter_ms,omitempty"`
+	// Timeout of a single pre-connect dial attempt.
+	DialTimeoutMs int64 `protobuf:"varint,5,opt,name=dial_timeout_ms,json=dialTimeoutMs,proto3" json:"dial_timeout_ms,omitempty"`
+	// Initial delay before retrying a failed dial.
+	RetryIntervalMs int64 `protobuf:"varint,6,opt,name=retry_interval_ms,json=retryIntervalMs,proto3" json:"retry_interval_ms,omitempty"`
+	// Maximum delay between dial retries after exponential backoff.
+	RetryMaxIntervalMs int64 `protobuf:"varint,7,opt,name=retry_max_interval_ms,json=retryMaxIntervalMs,proto3" json:"retry_max_interval_ms,omitempty"`
+	// Grace period to wait for pool producers to stop on handler close.
+	CloseGraceMs  int64 `protobuf:"varint,8,opt,name=close_grace_ms,json=closeGraceMs,proto3" json:"close_grace_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PoolConfig) Reset() {
+	*x = PoolConfig{}
+	mi := &file_proxy_vless_account_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PoolConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PoolConfig) ProtoMessage() {}
+
+func (x *PoolConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_proxy_vless_account_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PoolConfig.ProtoReflect.Descriptor instead.
+func (*PoolConfig) Descriptor() ([]byte, []int) {
+	return file_proxy_vless_account_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PoolConfig) GetMinIdle() uint32 {
+	if x != nil {
+		return x.MinIdle
+	}
+	return 0
+}
+
+func (x *PoolConfig) GetMaxIdle() uint32 {
+	if x != nil {
+		return x.MaxIdle
+	}
+	return 0
+}
+
+func (x *PoolConfig) GetLifetimeMs() int64 {
+	if x != nil {
+		return x.LifetimeMs
+	}
+	return 0
+}
+
+func (x *PoolConfig) GetLifetimeJitterMs() int64 {
+	if x != nil {
+		return x.LifetimeJitterMs
+	}
+	return 0
+}
+
+func (x *PoolConfig) GetDialTimeoutMs() int64 {
+	if x != nil {
+		return x.DialTimeoutMs
+	}
+	return 0
+}
+
+func (x *PoolConfig) GetRetryIntervalMs() int64 {
+	if x != nil {
+		return x.RetryIntervalMs
+	}
+	return 0
+}
+
+func (x *PoolConfig) GetRetryMaxIntervalMs() int64 {
+	if x != nil {
+		return x.RetryMaxIntervalMs
+	}
+	return 0
+}
+
+func (x *PoolConfig) GetCloseGraceMs() int64 {
+	if x != nil {
+		return x.CloseGraceMs
+	}
+	return 0
+}
+
 type Account struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID of the account, in the form of a UUID, e.g., "66ad4540-b58c-4ad2-9926-ea63445a9b57".
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Flow settings. May be "xtls-rprx-vision".
-	Flow          string   `protobuf:"bytes,2,opt,name=flow,proto3" json:"flow,omitempty"`
-	Encryption    string   `protobuf:"bytes,3,opt,name=encryption,proto3" json:"encryption,omitempty"`
-	XorMode       uint32   `protobuf:"varint,4,opt,name=xorMode,proto3" json:"xorMode,omitempty"`
-	Seconds       uint32   `protobuf:"varint,5,opt,name=seconds,proto3" json:"seconds,omitempty"`
-	Padding       string   `protobuf:"bytes,6,opt,name=padding,proto3" json:"padding,omitempty"`
-	Reverse       *Reverse `protobuf:"bytes,7,opt,name=reverse,proto3" json:"reverse,omitempty"`
-	Testpre       uint32   `protobuf:"varint,8,opt,name=testpre,proto3" json:"testpre,omitempty"`
-	Testseed      []uint32 `protobuf:"varint,9,rep,packed,name=testseed,proto3" json:"testseed,omitempty"`
+	Flow       string   `protobuf:"bytes,2,opt,name=flow,proto3" json:"flow,omitempty"`
+	Encryption string   `protobuf:"bytes,3,opt,name=encryption,proto3" json:"encryption,omitempty"`
+	XorMode    uint32   `protobuf:"varint,4,opt,name=xorMode,proto3" json:"xorMode,omitempty"`
+	Seconds    uint32   `protobuf:"varint,5,opt,name=seconds,proto3" json:"seconds,omitempty"`
+	Padding    string   `protobuf:"bytes,6,opt,name=padding,proto3" json:"padding,omitempty"`
+	Reverse    *Reverse `protobuf:"bytes,7,opt,name=reverse,proto3" json:"reverse,omitempty"`
+	Testpre    uint32   `protobuf:"varint,8,opt,name=testpre,proto3" json:"testpre,omitempty"`
+	Testseed   []uint32 `protobuf:"varint,9,rep,packed,name=testseed,proto3" json:"testseed,omitempty"`
+	// pool enables and configures pre-connection pooling. Takes precedence over testpre.
+	Pool          *PoolConfig `protobuf:"bytes,10,opt,name=pool,proto3" json:"pool,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Account) Reset() {
 	*x = Account{}
-	mi := &file_proxy_vless_account_proto_msgTypes[1]
+	mi := &file_proxy_vless_account_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -105,7 +216,7 @@ func (x *Account) String() string {
 func (*Account) ProtoMessage() {}
 
 func (x *Account) ProtoReflect() protoreflect.Message {
-	mi := &file_proxy_vless_account_proto_msgTypes[1]
+	mi := &file_proxy_vless_account_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -118,7 +229,7 @@ func (x *Account) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Account.ProtoReflect.Descriptor instead.
 func (*Account) Descriptor() ([]byte, []int) {
-	return file_proxy_vless_account_proto_rawDescGZIP(), []int{1}
+	return file_proxy_vless_account_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Account) GetId() string {
@@ -184,6 +295,13 @@ func (x *Account) GetTestseed() []uint32 {
 	return nil
 }
 
+func (x *Account) GetPool() *PoolConfig {
+	if x != nil {
+		return x.Pool
+	}
+	return nil
+}
+
 var File_proxy_vless_account_proto protoreflect.FileDescriptor
 
 const file_proxy_vless_account_proto_rawDesc = "" +
@@ -191,7 +309,18 @@ const file_proxy_vless_account_proto_rawDesc = "" +
 	"\x19proxy/vless/account.proto\x12\x10xray.proxy.vless\x1a\x19app/proxyman/config.proto\"Z\n" +
 	"\aReverse\x12\x10\n" +
 	"\x03tag\x18\x01 \x01(\tR\x03tag\x12=\n" +
-	"\bsniffing\x18\x02 \x01(\v2!.xray.app.proxyman.SniffingConfigR\bsniffing\"\x86\x02\n" +
+	"\bsniffing\x18\x02 \x01(\v2!.xray.app.proxyman.SniffingConfigR\bsniffing\"\xbe\x02\n" +
+	"\n" +
+	"PoolConfig\x12\x19\n" +
+	"\bmin_idle\x18\x01 \x01(\rR\aminIdle\x12\x19\n" +
+	"\bmax_idle\x18\x02 \x01(\rR\amaxIdle\x12\x1f\n" +
+	"\vlifetime_ms\x18\x03 \x01(\x03R\n" +
+	"lifetimeMs\x12,\n" +
+	"\x12lifetime_jitter_ms\x18\x04 \x01(\x03R\x10lifetimeJitterMs\x12&\n" +
+	"\x0fdial_timeout_ms\x18\x05 \x01(\x03R\rdialTimeoutMs\x12*\n" +
+	"\x11retry_interval_ms\x18\x06 \x01(\x03R\x0fretryIntervalMs\x121\n" +
+	"\x15retry_max_interval_ms\x18\a \x01(\x03R\x12retryMaxIntervalMs\x12$\n" +
+	"\x0eclose_grace_ms\x18\b \x01(\x03R\fcloseGraceMs\"\xb8\x02\n" +
 	"\aAccount\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04flow\x18\x02 \x01(\tR\x04flow\x12\x1e\n" +
@@ -203,7 +332,9 @@ const file_proxy_vless_account_proto_rawDesc = "" +
 	"\apadding\x18\x06 \x01(\tR\apadding\x123\n" +
 	"\areverse\x18\a \x01(\v2\x19.xray.proxy.vless.ReverseR\areverse\x12\x18\n" +
 	"\atestpre\x18\b \x01(\rR\atestpre\x12\x1a\n" +
-	"\btestseed\x18\t \x03(\rR\btestseedBR\n" +
+	"\btestseed\x18\t \x03(\rR\btestseed\x120\n" +
+	"\x04pool\x18\n" +
+	" \x01(\v2\x1c.xray.proxy.vless.PoolConfigR\x04poolBR\n" +
 	"\x14com.xray.proxy.vlessP\x01Z%github.com/xtls/xray-core/proxy/vless\xaa\x02\x10Xray.Proxy.Vlessb\x06proto3"
 
 var (
@@ -218,20 +349,22 @@ func file_proxy_vless_account_proto_rawDescGZIP() []byte {
 	return file_proxy_vless_account_proto_rawDescData
 }
 
-var file_proxy_vless_account_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proxy_vless_account_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_proxy_vless_account_proto_goTypes = []any{
 	(*Reverse)(nil),                 // 0: xray.proxy.vless.Reverse
-	(*Account)(nil),                 // 1: xray.proxy.vless.Account
-	(*proxyman.SniffingConfig)(nil), // 2: xray.app.proxyman.SniffingConfig
+	(*PoolConfig)(nil),              // 1: xray.proxy.vless.PoolConfig
+	(*Account)(nil),                 // 2: xray.proxy.vless.Account
+	(*proxyman.SniffingConfig)(nil), // 3: xray.app.proxyman.SniffingConfig
 }
 var file_proxy_vless_account_proto_depIdxs = []int32{
-	2, // 0: xray.proxy.vless.Reverse.sniffing:type_name -> xray.app.proxyman.SniffingConfig
+	3, // 0: xray.proxy.vless.Reverse.sniffing:type_name -> xray.app.proxyman.SniffingConfig
 	0, // 1: xray.proxy.vless.Account.reverse:type_name -> xray.proxy.vless.Reverse
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 2: xray.proxy.vless.Account.pool:type_name -> xray.proxy.vless.PoolConfig
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proxy_vless_account_proto_init() }
@@ -245,7 +378,7 @@ func file_proxy_vless_account_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proxy_vless_account_proto_rawDesc), len(file_proxy_vless_account_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

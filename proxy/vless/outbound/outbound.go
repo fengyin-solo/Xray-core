@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/xtls/xray-core/app/reverse"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
-	xctx "github.com/xtls/xray-core/common/ctx"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/mux"
 	"github.com/xtls/xray-core/common/net"
@@ -56,14 +54,7 @@ type Handler struct {
 	encryption    *encryption.ClientInstance
 	reverse       *Reverse
 
-	testpre  uint32
-	initpre  sync.Once
-	preConns chan *ConnExpire
-}
-
-type ConnExpire struct {
-	Conn   stat.Connection
-	Expire time.Time
+	pool *connPool
 }
 
 // New creates a new VLess outbound handler.
@@ -128,15 +119,17 @@ func New(ctx context.Context, config *Config) (*Handler, error) {
 		}()
 	}
 
-	handler.testpre = a.Testpre
+	if poolCfg, ok := poolConfigFromMemoryAccount(a); ok {
+		handler.pool = newConnPool(poolCfg)
+	}
 
 	return handler, nil
 }
 
 // Close implements common.Closable.Close().
 func (h *Handler) Close() error {
-	if h.preConns != nil {
-		close(h.preConns)
+	if h.pool != nil {
+		h.pool.Close()
 	}
 	if h.reverse != nil {
 		return h.reverse.Close()
@@ -156,36 +149,15 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	rec := h.server
 	var conn stat.Connection
 
-	if h.testpre > 0 && h.reverse == nil {
-		h.initpre.Do(func() {
-			h.preConns = make(chan *ConnExpire)
-			for range h.testpre { // TODO: randomize
-				go func() {
-					defer func() { recover() }()
-					ctx := xctx.ContextWithID(context.Background(), session.NewID())
-					for {
-						conn, err := dialer.Dial(ctx, rec.Destination)
-						if err != nil {
-							errors.LogWarningInner(ctx, err, "pre-connect failed")
-							continue
-						}
-						h.preConns <- &ConnExpire{Conn: conn, Expire: time.Now().Add(time.Minute * 2)} // TODO: customize & randomize
-						time.Sleep(time.Millisecond * 200)                                             // TODO: customize & randomize
-					}
-				}()
-			}
-		})
-		for {
-			connTime := <-h.preConns
-			if connTime == nil {
-				return errors.New("closed handler").AtWarning()
-			}
-			if time.Now().Before(connTime.Expire) {
-				conn = connTime.Conn
-				break
-			}
-			connTime.Conn.Close()
+	if h.pool != nil && h.reverse == nil {
+		if err := h.pool.start(dialer, rec.Destination); err != nil {
+			return errors.New("closed handler").Base(err).AtWarning()
 		}
+		pooledConn, err := h.pool.Get(ctx)
+		if err != nil {
+			return errors.New("failed to take a pre-connect connection").Base(err).AtWarning()
+		}
+		conn = pooledConn
 	}
 
 	if conn == nil {
