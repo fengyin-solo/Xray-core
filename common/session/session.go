@@ -4,6 +4,7 @@ package session // import "github.com/xtls/xray-core/common/session"
 import (
 	"context"
 	"math/rand"
+	"time"
 
 	c "github.com/xtls/xray-core/common/ctx"
 	"github.com/xtls/xray-core/common/errors"
@@ -83,6 +84,13 @@ type SniffingRequest struct {
 	Enabled                        bool
 	MetadataOnly                   bool
 	RouteOnly                      bool
+	// SniffingTimeout is the total time window to wait for the client first
+	// packet during content sniffing. A non-positive value means the default.
+	// Ignored when MetadataOnly is true.
+	SniffingTimeout time.Duration
+	// MaxAttempts is the maximum number of attempts to read and sniff the
+	// client first packet. A non-positive value means the default.
+	MaxAttempts int32
 }
 
 // Content is the metadata of the connection content. Mainly used for routing.

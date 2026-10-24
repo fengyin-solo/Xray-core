@@ -32,6 +32,16 @@ message SniffingConfig {
   bool metadata_only = 4;
 
   bool route_only = 5;
+
+  // Total time window to wait for the client first packet while content
+  // sniffing, in milliseconds. Effective only when metadata_only is false.
+  // Non-positive value falls back to the built-in default (200ms).
+  int32 sniffing_timeout = 7;
+
+  // Maximum number of attempts to read and sniff the client first packet
+  // before declaring a sniffing timeout. Non-positive value falls back to
+  // the built-in default (2).
+  int32 max_attempts = 8;
 }
 
 message ReceiverConfig {
