@@ -24,6 +24,7 @@ func (a *Account) AsAccount() (protocol.Account, error) {
 		Reverse:    a.Reverse,
 		Testpre:    a.Testpre,
 		Testseed:   a.Testseed,
+		Pool:       a.Pool,
 	}, nil
 }
 
@@ -41,7 +42,9 @@ type MemoryAccount struct {
 
 	Reverse *Reverse
 
-	Testpre  uint32
+	Testpre uint32
+	// Pool configures the pre-connection pool. Takes precedence over Testpre.
+	Pool     *PoolConfig
 	Testseed []uint32
 }
 
@@ -65,5 +68,6 @@ func (a *MemoryAccount) ToProto() proto.Message {
 		Reverse:    a.Reverse,
 		Testpre:    a.Testpre,
 		Testseed:   a.Testseed,
+		Pool:       a.Pool,
 	}
 }

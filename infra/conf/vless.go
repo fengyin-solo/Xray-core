@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
@@ -15,6 +16,7 @@ import (
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/common/uuid"
+	"github.com/xtls/xray-core/infra/conf/cfgcommon/duration"
 	"github.com/xtls/xray-core/proxy/vless"
 	"github.com/xtls/xray-core/proxy/vless/inbound"
 	"github.com/xtls/xray-core/proxy/vless/outbound"
@@ -242,6 +244,62 @@ type VLessOutboundVnext struct {
 	Users   []json.RawMessage `json:"users"`
 }
 
+// VLessPoolConfig is the JSON form of the VLESS outbound pre-connection pool.
+// Durations accept strings like "30s" or "2m"; unset values use built-in defaults.
+type VLessPoolConfig struct {
+	MinIdle          uint32             `json:"minIdle"`
+	MaxIdle          uint32             `json:"maxIdle"`
+	Lifetime         *duration.Duration `json:"lifetime"`
+	LifetimeJitter   *duration.Duration `json:"lifetimeJitter"`
+	DialTimeout      *duration.Duration `json:"dialTimeout"`
+	RetryInterval    *duration.Duration `json:"retryInterval"`
+	RetryMaxInterval *duration.Duration `json:"retryMaxInterval"`
+	CloseGrace       *duration.Duration `json:"closeGrace"`
+}
+
+func durationToMillis(d *duration.Duration) int64 {
+	if d == nil {
+		return 0
+	}
+	return int64(time.Duration(*d) / time.Millisecond)
+}
+
+// Build converts the JSON pool config into the protobuf form.
+func (c *VLessPoolConfig) Build() *vless.PoolConfig {
+	return &vless.PoolConfig{
+		MinIdle:            c.MinIdle,
+		MaxIdle:            c.MaxIdle,
+		LifetimeMs:         durationToMillis(c.Lifetime),
+		LifetimeJitterMs:   durationToMillis(c.LifetimeJitter),
+		DialTimeoutMs:      durationToMillis(c.DialTimeout),
+		RetryIntervalMs:    durationToMillis(c.RetryInterval),
+		RetryMaxIntervalMs: durationToMillis(c.RetryMaxInterval),
+		CloseGraceMs:       durationToMillis(c.CloseGrace),
+	}
+}
+
+// VLessTestpreConfig accepts both the legacy numeric form ("testpre": 4) and
+// the new pool form ("testpre": {"maxIdle": 8, ...}).
+type VLessTestpreConfig struct {
+	Count uint32
+	Pool  *VLessPoolConfig
+}
+
+// UnmarshalJSON implements encoding/json.Unmarshaler.
+func (t *VLessTestpreConfig) UnmarshalJSON(b []byte) error {
+	var count uint32
+	if err := json.Unmarshal(b, &count); err == nil {
+		t.Count = count
+		return nil
+	}
+	pool := new(VLessPoolConfig)
+	if err := json.Unmarshal(b, pool); err != nil {
+		return err
+	}
+	t.Pool = pool
+	return nil
+}
+
 type VLessOutboundConfig struct {
 	Address    *Address              `json:"address"`
 	Port       uint16                `json:"port"`
@@ -252,7 +310,7 @@ type VLessOutboundConfig struct {
 	Seed       string                `json:"seed"`
 	Encryption string                `json:"encryption"`
 	Reverse    *VLessReverseConfig   `json:"reverse"`
-	Testpre    uint32                `json:"testpre"`
+	Testpre    VLessTestpreConfig    `json:"testpre"`
 	Testseed   []uint32              `json:"testseed"`
 	Vnext      []*VLessOutboundVnext `json:"vnext"`
 }
@@ -306,7 +364,11 @@ func (c *VLessOutboundConfig) Build() (proto.Message, error) {
 					}
 					account.Reverse = rvs
 				}
-				account.Testpre = c.Testpre
+				if c.Testpre.Pool != nil {
+					account.Pool = c.Testpre.Pool.Build()
+				} else if c.Testpre.Count > 0 {
+					account.Testpre = c.Testpre.Count
+				}
 				account.Testseed = c.Testseed
 			} else {
 				if err := json.Unmarshal(rawUser, account); err != nil {
