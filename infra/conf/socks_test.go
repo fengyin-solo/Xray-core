@@ -44,6 +44,35 @@ func TestSocksInboundConfig(t *testing.T) {
 				UserLevel: 1,
 			},
 		},
+		{
+			Input: `{
+				"auth": "noauth",
+				"udp": true,
+				"ip": "127.0.0.1",
+				"bind": true,
+				"bindAddress": "127.0.0.2",
+				"bindPort": "10000-11000",
+				"bindTimeout": "90s"
+			}`,
+			Parser: loadJSON(creator),
+			Output: &socks.ServerConfig{
+				AuthType:   socks.AuthType_NO_AUTH,
+				UdpEnabled: true,
+				Address: &net.IPOrDomain{
+					Address: &net.IPOrDomain_Ip{
+						Ip: []byte{127, 0, 0, 1},
+					},
+				},
+				BindEnabled: true,
+				BindAddress: &net.IPOrDomain{
+					Address: &net.IPOrDomain_Ip{
+						Ip: []byte{127, 0, 0, 2},
+					},
+				},
+				BindPortRange: &net.PortRange{From: 10000, To: 11000},
+				BindTimeout:   90,
+			},
+		},
 	})
 }
 

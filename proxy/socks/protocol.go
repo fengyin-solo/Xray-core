@@ -32,9 +32,15 @@ const (
 	authPassword         = 0x02
 	authNoMatchingMethod = 0xFF
 
-	statusSuccess       = 0x00
-	statusCmdNotSupport = 0x07
+	statusSuccess        = 0x00
+	statusGeneralFailure = 0x01
+	statusNotAllowed     = 0x02
+	statusCmdNotSupport  = 0x07
 )
+
+// requestCommandTCPBind represents a SOCKS BIND request. It is only used
+// inside the socks package.
+const requestCommandTCPBind = protocol.RequestCommand(0x05)
 
 var addrParser = protocol.NewAddressParser(
 	protocol.AddressFamilyByte(0x01, net.AddressFamilyIPv4),
@@ -72,7 +78,10 @@ func (s *ServerSession) handshake4(cmd byte, reader io.Reader, writer io.Writer)
 	if _, err := ReadUntilNull(reader); /* user id */ err != nil {
 		return nil, err
 	}
-	if address.IP()[0] == 0x00 {
+	// A zero first byte is the SOCKS4a marker for a trailing domain name.
+	// It never makes sense for BIND, whose address is informational only;
+	// real BIND clients send 0.0.0.0 without any trailing bytes.
+	if address.IP()[0] == 0x00 && cmd != cmdTCPBind {
 		domain, err := ReadUntilNull(reader)
 		if err != nil {
 			return nil, errors.New("failed to read domain for socks 4a").Base(err)
@@ -92,6 +101,19 @@ func (s *ServerSession) handshake4(cmd byte, reader io.Reader, writer io.Writer)
 			return nil, err
 		}
 		return request, nil
+	case cmdTCPBind:
+		if !s.config.BindEnabled {
+			writeSocks4Response(writer, socks4RequestRejected, net.AnyIP, net.Port(0))
+			return nil, errors.New("TCP bind is not supported.")
+		}
+		// Both BIND replies are sent by the caller, after the listener is
+		// ready and again once the inbound connection arrives.
+		return &protocol.RequestHeader{
+			Command: requestCommandTCPBind,
+			Address: address,
+			Port:    port,
+			Version: socks4Version,
+		}, nil
 	default:
 		writeSocks4Response(writer, socks4RequestRejected, net.AnyIP, net.Port(0))
 		return nil, errors.New("unsupported command: ", cmd)
@@ -175,8 +197,11 @@ func (s *ServerSession) handshake5(nMethod byte, reader io.Reader, writer net.Co
 		}
 		request.Command = protocol.RequestCommandUDP
 	case cmdTCPBind:
-		writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
-		return nil, nil, errors.New("TCP bind is not supported.")
+		if !s.config.BindEnabled {
+			writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
+			return nil, nil, errors.New("TCP bind is not supported.")
+		}
+		request.Command = requestCommandTCPBind
 	default:
 		writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
 		return nil, nil, errors.New("unknown command ", cmd)
@@ -190,6 +215,13 @@ func (s *ServerSession) handshake5(nMethod byte, reader io.Reader, writer net.Co
 	}
 	request.Address = addr
 	request.Port = port
+
+	if request.Command == requestCommandTCPBind {
+		// BIND replies are managed by the caller: the first one is sent
+		// after the listener is ready, the second one after the inbound
+		// connection is accepted.
+		return request, nil, nil
+	}
 
 	responseAddress := s.address
 	responsePort := s.port
